@@ -124,7 +124,7 @@ export default async function AdminDashboard() {
         </div>
         <div className="flex gap-3">
           <Button variant="outline" asChild>
-            <Link href="/admin/settings">
+            <Link href="/admin-settings">
               <Settings className="mr-2 h-4 w-4" />
               System Settings
             </Link>
