@@ -13,7 +13,8 @@ import {
   Calendar, 
   User, 
   Briefcase,
-  Globe
+  Globe,
+  AlertCircle
 } from 'lucide-react';
 
 // Type definitions
@@ -35,6 +36,10 @@ interface Profile {
   dateOfBirth: string;
 }
 
+interface ValidationErrors {
+  [key: string]: string;
+}
+
 interface UneditableFieldProps {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -45,7 +50,12 @@ interface EditableFieldProps {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   field: keyof Profile;
-  type?: 'text' | 'date' | 'url';
+  type?: 'text' | 'date' | 'url' | 'tel';
+  required?: boolean;
+  value: string;
+  onChange: (field: keyof Profile, value: string) => void;
+  error?: string;
+  isEditing: boolean;
 }
 
 interface IconProps {
@@ -58,6 +68,7 @@ export default function ProfilePage() {
   const [tempProfile, setTempProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -73,31 +84,153 @@ export default function ProfilePage() {
     fetchProfile();
   }, []);
 
+  // Validation functions
+  const validateField = (field: keyof Profile, value: string): string => {
+    switch (field) {
+      case 'firstName':
+      case 'lastName':
+        if (!value.trim()) return `${field === 'firstName' ? 'First name' : 'Last name'} is required`;
+        if (value.length < 2) return `${field === 'firstName' ? 'First name' : 'Last name'} must be at least 2 characters`;
+        if (!/^[a-zA-Z\s\-']+$/.test(value)) return `${field === 'firstName' ? 'First name' : 'Last name'} can only contain letters, spaces, hyphens, and apostrophes`;
+        return '';
+
+      case 'email':
+        if (!value.trim()) return 'Email is required';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Please enter a valid email address';
+        return '';
+
+      case 'phone':
+        if (value && !/^[\+]?[1-9][\d]{0,15}$/.test(value.replace(/[\s\-\(\)]/g, ''))) {
+          return 'Please enter a valid phone number';
+        }
+        return '';
+
+      case 'dateOfBirth':
+        if (value) {
+          const birthDate = new Date(value);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0); // Reset time part for accurate date comparison
+          
+          if (birthDate > today) return 'Date of birth cannot be in the future';
+          
+          const age = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+          const dayDiff = today.getDate() - birthDate.getDate();
+          
+          const adjustedAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+          
+          if (adjustedAge < 13) return 'You must be at least 13 years old';
+          if (adjustedAge > 120) return 'Please enter a valid date of birth';
+        }
+        return '';
+
+      case 'website':
+      case 'github':
+      case 'linkedin':
+        if (value && !/^https?:\/\/.+\..+/.test(value)) {
+          return 'Please enter a valid URL starting with http:// or https://';
+        }
+        return '';
+
+      case 'jobTitle':
+        if (value && value.length < 2) return 'Job title must be at least 2 characters';
+        if (value && !/^[a-zA-Z0-9\s\-_,.&()]+$/.test(value)) return 'Job title contains invalid characters';
+        return '';
+
+      case 'company':
+        if (value && value.length < 2) return 'Company name must be at least 2 characters';
+        if (value && !/^[a-zA-Z0-9\s\-_,.&()]+$/.test(value)) return 'Company name contains invalid characters';
+        return '';
+
+      case 'location':
+        if (value && value.length < 2) return 'Location must be at least 2 characters';
+        if (value && !/^[a-zA-Z\s\-,]+$/.test(value)) return 'Location can only contain letters, spaces, commas, and hyphens';
+        return '';
+
+      case 'bio':
+        if (value && value.length > 500) return 'Bio cannot exceed 500 characters';
+        return '';
+
+      default:
+        return '';
+    }
+  };
+
+  const validateForm = (): boolean => {
+    if (!tempProfile) return false;
+
+    const errors: ValidationErrors = {};
+    const requiredFields: (keyof Profile)[] = ['firstName', 'lastName', 'email'];
+
+    requiredFields.forEach(field => {
+      const error = validateField(field, tempProfile[field]);
+      if (error) {
+        errors[field] = error;
+      }
+    });
+
+    // Validate all fields that have values
+    Object.keys(tempProfile).forEach(field => {
+      const key = field as keyof Profile;
+      if (tempProfile[key]) {
+        const error = validateField(key, tempProfile[key]);
+        if (error && !errors[key]) {
+          errors[key] = error;
+        }
+      }
+    });
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleEdit = (): void => {
     setIsEditing(true);
+    setValidationErrors({});
   };
 
   const handleSave = async () => {
-    if (tempProfile) {
-      const { profile, error } = await updateProfile(tempProfile);
-      if (error) {
-        // Handle error (e.g., show a toast message)
-      } else {
-        setProfile(profile);
-        setIsEditing(false);
-      }
+    if (!tempProfile) return;
+
+    if (!validateForm()) {
+      setError('Please fix validation errors before saving');
+      return;
+    }
+
+    const { profile: updatedProfile, error } = await updateProfile(tempProfile);
+    if (error) {
+      setError(error);
+    } else {
+      setProfile(updatedProfile);
+      setIsEditing(false);
+      setError(null);
+      setValidationErrors({});
     }
   };
 
   const handleCancel = (): void => {
     setTempProfile(profile);
     setIsEditing(false);
+    setValidationErrors({});
+    setError(null);
   };
 
   const handleChange = (field: keyof Profile, value: string): void => {
-    setTempProfile(prev => ({
+    if (!tempProfile) return;
+
+    setTempProfile(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [field]: value
+      };
+    });
+
+    // Validate field in real-time
+    const error = validateField(field, value);
+    setValidationErrors(prev => ({
       ...prev,
-      [field]: value
+      [field]: error
     }));
   };
 
@@ -112,26 +245,49 @@ export default function ProfilePage() {
     </div>
   );
 
-  const EditableField: React.FC<EditableFieldProps> = ({ icon: Icon, label, field, type = 'text' }) => (
-    <div className="flex items-center space-x-3">
-      <Icon className="w-5 h-5 text-gray-400 mt-6" />
-      <div className="flex-1">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {label}
-        </label>
-        {isEditing ? (
-          <input
-            type={type}
-            value={tempProfile[field]}
-            onChange={(e) => handleChange(field, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-          />
-        ) : (
-          <p className="text-gray-900 py-2">{profile[field] || 'Not provided'}</p>
-        )}
+  const EditableField: React.FC<EditableFieldProps> = ({ 
+    icon: Icon, 
+    label, 
+    field, 
+    type = 'text',
+    required = false,
+    value,
+    onChange,
+    error,
+    isEditing
+  }) => {
+    return (
+      <div className="flex items-start space-x-3">
+        <Icon className="w-5 h-5 text-gray-400 mt-6" />
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {label} {required && <span className="text-red-500">*</span>}
+          </label>
+          {isEditing ? (
+            <div>
+              <input
+                type={type}
+                value={value}
+                onChange={(e) => onChange(field, e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                  error ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
+                placeholder={`Enter ${label.toLowerCase()}`}
+              />
+              {error && (
+                <div className="flex items-center mt-1 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  {error}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-gray-900 py-2">{value || 'Not provided'}</p>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Custom SVG icons with proper typing
   const GitHub: React.FC<IconProps> = ({ className }) => (
@@ -147,15 +303,36 @@ export default function ProfilePage() {
   );
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (error) {
-    return <div>{error}</div>;
+  if (error && !profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-red-600">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4" />
+          <p>{error}</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!profile) {
-    return <div>Profile Not Found</div>;
+  if (!profile || !tempProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">Profile Not Found</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -166,6 +343,14 @@ export default function ProfilePage() {
           <h1 className="text-3xl font-bold text-gray-900">Profile Settings</h1>
           <p className="text-gray-600 mt-2">Manage your personal information and account settings</p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+            <p className="text-red-600">{error}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Profile Picture & Basic Info */}
@@ -203,7 +388,8 @@ export default function ProfilePage() {
                   <>
                     <button
                       onClick={handleSave}
-                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                      disabled={Object.keys(validationErrors).length > 0}
+                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
                     >
                       <Save className="w-4 h-4" />
                       <span>Save Changes</span>
@@ -235,11 +421,55 @@ export default function ProfilePage() {
               <div className="p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <EditableField icon={User} label="First Name" field="firstName" />
-                  <EditableField icon={User} label="Last Name" field="lastName" />
-                  <EditableField icon={Phone} label="Phone" field="phone" />
-                  <EditableField icon={Calendar} label="Date of Birth" field="dateOfBirth" type="date" />
-                  <EditableField icon={MapPin} label="Location" field="location" />
+                  <EditableField 
+                    icon={User} 
+                    label="First Name" 
+                    field="firstName" 
+                    required 
+                    value={tempProfile.firstName}
+                    onChange={handleChange}
+                    error={validationErrors.firstName}
+                    isEditing={isEditing}
+                  />
+                  <EditableField 
+                    icon={User} 
+                    label="Last Name" 
+                    field="lastName" 
+                    required 
+                    value={tempProfile.lastName}
+                    onChange={handleChange}
+                    error={validationErrors.lastName}
+                    isEditing={isEditing}
+                  />
+                  <EditableField 
+                    icon={Phone} 
+                    label="Phone" 
+                    field="phone" 
+                    type="tel"
+                    value={tempProfile.phone}
+                    onChange={handleChange}
+                    error={validationErrors.phone}
+                    isEditing={isEditing}
+                  />
+                  <EditableField 
+                    icon={Calendar} 
+                    label="Date of Birth" 
+                    field="dateOfBirth" 
+                    type="date"
+                    value={tempProfile.dateOfBirth}
+                    onChange={handleChange}
+                    error={validationErrors.dateOfBirth}
+                    isEditing={isEditing}
+                  />
+                  <EditableField 
+                    icon={MapPin} 
+                    label="Location" 
+                    field="location"
+                    value={tempProfile.location}
+                    onChange={handleChange}
+                    error={validationErrors.location}
+                    isEditing={isEditing}
+                  />
                 </div>
               </div>
 
@@ -247,23 +477,56 @@ export default function ProfilePage() {
               <div className="p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Professional Information</h3>
                 <div className="space-y-4">
-                  <EditableField icon={Briefcase} label="Job Title" field="jobTitle" />
-                  <EditableField icon={Briefcase} label="Company" field="company" />
+                  <EditableField 
+                    icon={Briefcase} 
+                    label="Job Title" 
+                    field="jobTitle"
+                    value={tempProfile.jobTitle}
+                    onChange={handleChange}
+                    error={validationErrors.jobTitle}
+                    isEditing={isEditing}
+                  />
+                  <EditableField 
+                    icon={Briefcase} 
+                    label="Company" 
+                    field="company"
+                    value={tempProfile.company}
+                    onChange={handleChange}
+                    error={validationErrors.company}
+                    isEditing={isEditing}
+                  />
                   
                   <div className="flex items-start space-x-3">
                     <User className="w-5 h-5 text-gray-400 mt-2" />
-                    <div class="flex-1">
+                    <div className="flex-1">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Bio
                       </label>
                       {isEditing ? (
-                        <textarea
-                          value={tempProfile.bio}
-                          onChange={(e) => handleChange('bio', e.target.value)}
-                          rows={4}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                          placeholder="Tell us about yourself..."
-                        />
+                        <div>
+                          <textarea
+                            value={tempProfile.bio}
+                            onChange={(e) => handleChange('bio', e.target.value)}
+                            rows={4}
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                              validationErrors.bio ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                            }`}
+                            placeholder="Tell us about yourself..."
+                          />
+                          <div className="flex justify-between mt-1">
+                            {validationErrors.bio && (
+                              <div className="flex items-center text-red-600 text-sm">
+                                <AlertCircle className="w-4 h-4 mr-1" />
+                                {validationErrors.bio}
+                              </div>
+                            )}
+                            <span className={`text-sm ml-auto ${
+                              (tempProfile?.bio?.length || 0) > 500 ? 'text-red-600' : 'text-gray-500'
+                            }`}>
+                              {tempProfile?.bio?.length || 0}/500
+                            </span>
+                          </div>
+                        </div>
                       ) : (
                         <p className="text-gray-900 py-2 whitespace-pre-wrap">
                           {profile.bio || 'No bio provided'}
@@ -278,9 +541,36 @@ export default function ProfilePage() {
               <div className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Social Links</h3>
                 <div className="space-y-4">
-                  <EditableField icon={Globe} label="Website" field="website" type="url" />
-                  <EditableField icon={GitHub} label="GitHub" field="github" />
-                  <EditableField icon={Linkedin} label="LinkedIn" field="linkedin" />
+                  <EditableField 
+                    icon={Globe} 
+                    label="Website" 
+                    field="website" 
+                    type="url"
+                    value={tempProfile.website}
+                    onChange={handleChange}
+                    error={validationErrors.website}
+                    isEditing={isEditing}
+                  />
+                  <EditableField 
+                    icon={GitHub} 
+                    label="GitHub" 
+                    field="github" 
+                    type="url"
+                    value={tempProfile.github}
+                    onChange={handleChange}
+                    error={validationErrors.github}
+                    isEditing={isEditing}
+                  />
+                  <EditableField 
+                    icon={Linkedin} 
+                    label="LinkedIn" 
+                    field="linkedin" 
+                    type="url"
+                    value={tempProfile.linkedin}
+                    onChange={handleChange}
+                    error={validationErrors.linkedin}
+                    isEditing={isEditing}
+                  />
                 </div>
               </div>
             </div>

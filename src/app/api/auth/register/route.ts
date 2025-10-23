@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       return NextResponse.json(
-        { error: 'User already exists' },
+        { error: 'User already exists with this email' },
         { status: 400 }
       );
     }
@@ -28,20 +28,24 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
+    // Create user - remove the role field or use the correct enum value
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
+        // Remove the role field or check your Prisma schema for correct values
       },
     });
 
     // Return user without password
-    const { password: _, ...userWithoutPassword } = user;
+    const { password: removedPassword, ...userWithoutPassword } = user;
 
     return NextResponse.json(
-      { message: 'User created successfully', user: userWithoutPassword },
+      { 
+        message: 'User created successfully', 
+        user: userWithoutPassword 
+      },
       { status: 201 }
     );
   } catch (error) {

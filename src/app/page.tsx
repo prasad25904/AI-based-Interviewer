@@ -196,7 +196,7 @@ export default function Home() {
       </section>
 
       {/* Testimonials */}
-      <section className="relative container mx-auto px-4 py-20">
+      {/* <section className="relative container mx-auto px-4 py-20">
         <h2 className="text-3xl font-bold text-center mb-16 text-white">
           Loved by Job Seekers Worldwide
         </h2>
@@ -229,7 +229,7 @@ export default function Home() {
             </div>
           ))}
         </div>
-      </section>
+      </section> */}
 
       {/* CTA Section */}
       <section className="relative bg-gradient-to-r from-amber-500/20 via-blue-500/20 to-slate-500/20 backdrop-blur-sm border-t border-b border-white/10 py-20">
