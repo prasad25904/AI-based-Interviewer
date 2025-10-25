@@ -26,61 +26,65 @@ interface ExportUsersButtonProps {
 export function ExportUsersButton({ users }: ExportUsersButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
-  const handleExport = async () => {
+  const exportToCSV = () => {
     setIsExporting(true);
     
     try {
-      // Use client-side export for simplicity
-      const XLSX = await import('xlsx');
-      
-      // Prepare data for Excel
-      const excelData = users.map(user => ({
-        'User ID': user.id,
-        'Name': user.name || 'N/A',
-        'Email': user.email,
-        'Role': user.role,
-        'Email Verified': user.emailVerified ? 'Yes' : 'No',
-        'Join Date': new Date(user.createdAt).toLocaleDateString('en-US', {
+      // Prepare CSV headers
+      const headers = [
+        'User ID',
+        'Name',
+        'Email', 
+        'Role',
+        'Email Verified',
+        'Join Date',
+        'Total Interviews',
+        'Resumes Uploaded',
+        'Active Sessions',
+        'Total Activities',
+        'Days Since Join'
+      ];
+
+      // Prepare data rows
+      const csvData = users.map(user => [
+        user.id,
+        user.name || 'N/A',
+        user.email,
+        user.role,
+        user.emailVerified ? 'Yes' : 'No',
+        new Date(user.createdAt).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
           day: 'numeric'
         }),
-        'Total Interviews': user._count.interviews,
-        'Resumes Uploaded': user._count.resumes,
-        'Active Sessions': user._count.sessions,
-        'Total Activities': user._count.activities,
-        'Days Since Join': Math.floor((new Date().getTime() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
-      }));
+        user._count.interviews.toString(),
+        user._count.resumes.toString(),
+        user._count.sessions.toString(),
+        user._count.activities.toString(),
+        Math.floor((new Date().getTime() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)).toString()
+      ]);
 
-      // Create workbook and worksheet
-      const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      // Combine headers and data
+      const csvContent = [headers, ...csvData]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
 
-      // Set column widths for better readability
-      const colWidths = [
-        { wch: 36 }, // User ID
-        { wch: 20 }, // Name
-        { wch: 25 }, // Email
-        { wch: 10 }, // Role
-        { wch: 12 }, // Email Verified
-        { wch: 15 }, // Join Date
-        { wch: 15 }, // Total Interviews
-        { wch: 15 }, // Resumes Uploaded
-        { wch: 15 }, // Active Sessions
-        { wch: 15 }, // Total Activities
-        { wch: 15 }, // Days Since Join
-      ];
-      worksheet['!cols'] = colWidths;
-
-      // Add worksheet to workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
-
-      // Generate filename with timestamp
+      // Create and download CSV file
       const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `users_export_${timestamp}.xlsx`;
-
-      // Export to Excel
-      XLSX.writeFile(workbook, filename);
+      const filename = `users_export_${timestamp}.csv`;
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
     } catch (error) {
       console.error('Error exporting users:', error);
@@ -92,7 +96,7 @@ export function ExportUsersButton({ users }: ExportUsersButtonProps) {
 
   return (
     <Button 
-      onClick={handleExport} 
+      onClick={exportToCSV} 
       disabled={isExporting || users.length === 0}
       className="flex items-center gap-2"
     >
