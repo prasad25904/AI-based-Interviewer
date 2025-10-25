@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Users, Mail, Calendar, Activity } from 'lucide-react';
+import { ExportUsersButton } from '@/components/admin/ExportUsersButton';
 
 export default async function AdminUsersPage() {
   const session = await getServerSession(authOptions);
@@ -32,11 +33,13 @@ export default async function AdminUsersPage() {
       email: true,
       role: true,
       createdAt: true,
+      emailVerified: true,
       _count: {
         select: {
           interviews: true,
           resumes: true,
-          sessions: true
+          sessions: true,
+          activities: true
         }
       }
     },
@@ -51,12 +54,11 @@ export default async function AdminUsersPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600">Manage and monitor all system users</p>
+          <p className="text-gray-600">
+            Manage and monitor all system users ({users.length} total)
+          </p>
         </div>
-        <Button>
-          <Users className="mr-2 h-4 w-4" />
-          Export Users
-        </Button>
+        <ExportUsersButton users={users} />
       </div>
 
       {/* Users Grid */}
@@ -98,6 +100,14 @@ export default async function AdminUsersPage() {
                   Resumes
                 </div>
                 <Badge variant="outline">{user._count.resumes}</Badge>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center">
+                  <Activity className="h-3 w-3 mr-1 text-gray-500" />
+                  Activities
+                </div>
+                <Badge variant="outline">{user._count.activities}</Badge>
               </div>
 
               <div className="pt-3 border-t">

@@ -10,7 +10,11 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'AI Interviewer',
   description: 'Your personal AI-powered interview coach',
+  icons: {
+    icon: '/logo.svg',
+  },
 };
+
 
 export default function RootLayout({
   children,

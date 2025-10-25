@@ -21,18 +21,24 @@ interface UserGrowthChartProps {
 }
 
 export function UserGrowthChart({ data }: UserGrowthChartProps) {
+  // Ensure we have valid data
+  const chartData = data && data.length > 0 ? data : [
+    { date: 'No Data', users: 0 }
+  ];
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>User Growth (Last 30 Days)</CardTitle>
         <CardDescription>
           New user registrations over time
+          {data.length === 0 && ' - No data available'}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
+            <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis 
                 dataKey="date" 
@@ -64,6 +70,11 @@ export function UserGrowthChart({ data }: UserGrowthChartProps) {
             </BarChart>
           </ResponsiveContainer>
         </div>
+        {data.length === 0 && (
+          <div className="text-center text-gray-500 text-sm mt-4">
+            No user registration data available for the last 30 days
+          </div>
+        )}
       </CardContent>
     </Card>
   );
