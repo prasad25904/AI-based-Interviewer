@@ -1,3 +1,4 @@
+//src/app/dashboard/resumes/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -352,8 +353,9 @@ export default function ResumesPage() {
                   <div className="flex items-center space-x-3">
                     <button
                       onClick={() => {
-                        // In a real app, this would download the file
-                        alert(`Downloading ${resume.filename}`);
+                        // Use the API route for download
+                        const downloadUrl = `/api/resumes/${resume.id}/download`;
+                        window.open(downloadUrl, '_blank');
                       }}
                       className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white p-3 rounded-xl shadow-lg shadow-green-500/25 hover:shadow-green-500/40 transition-all duration-300 transform hover:scale-110 group/btn"
                       title="Download resume"

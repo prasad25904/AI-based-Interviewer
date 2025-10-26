@@ -1,3 +1,4 @@
+//src/actions/resume-actions.ts
 "use server";
 
 import { ResumeService, ResumeData } from '@/lib/services/resume-service';
@@ -49,7 +50,11 @@ export async function uploadResume(formData: FormData) {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
     
-    if (!allowedTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.pdf') && !file.name.toLowerCase().endsWith('.doc') && !file.name.toLowerCase().endsWith('.docx')) {
+    const fileExtension = file.name.toLowerCase().split('.').pop();
+    const isValidType = allowedTypes.includes(file.type) || 
+                       ['pdf', 'doc', 'docx'].includes(fileExtension || '');
+
+    if (!isValidType) {
       return { resume: null, error: "Only PDF and Word documents are allowed" };
     }
 
@@ -58,16 +63,16 @@ export async function uploadResume(formData: FormData) {
       return { resume: null, error: "File size must be less than 5MB" };
     }
 
-    // Read file content (in a real app, you'd upload to cloud storage)
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const content = buffer.toString('base64');
+    // Convert file to base64 for storage
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Content = buffer.toString('base64');
 
     const resumeData: ResumeData = {
       filename: filename.trim(),
-      content,
+      content: base64Content,
       fileSize: file.size,
-      fileUrl: undefined // Use undefined instead of null
+      fileUrl: null // Use null instead of undefined
     };
 
     const resume = await ResumeService.createResume(user.id, resumeData);

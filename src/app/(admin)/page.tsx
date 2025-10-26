@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Activity, BarChart3, Clock, TrendingUp, Calendar } from 'lucide-react';
+import { Users, Activity, BarChart3, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 // Chart components (we'll use recharts for visualization)
@@ -16,8 +16,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell
